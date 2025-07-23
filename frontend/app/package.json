@@ -43,6 +43,7 @@
     "@reown/appkit": "1.7.4",
     "@reown/appkit-adapter-wagmi": "1.7.4",
     "@reown/walletkit": "1.2.4",
+    "@trezor/connect-web": "^9.6.2",
     "@rotki/common": "workspace:*",
     "@rotki/ui-library": "2.1.0",
     "@types/jsdom": "21.1.7",

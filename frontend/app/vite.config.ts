@@ -85,6 +85,7 @@ export default defineConfig({
       '@ledgerhq/device-management-kit',
       '@ledgerhq/device-signer-kit-ethereum',
       '@ledgerhq/device-transport-kit-web-hid',
+      '@trezor/connect-web',
     ],
   },
   plugins: [
