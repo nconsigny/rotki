@@ -4,8 +4,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global color variables based on the new color scheme */
+:root {
+  --e-global-color-primary: #003823;
+  --e-global-color-secondary: #FFFFFF;
+  --e-global-color-text: #003228;
+  --e-global-color-accent: #61CE70;
+  --e-global-color-55b96ba: #7A7A7A;
+  --e-global-typography-primary-font-family: "Poppins";
+  --e-global-typography-primary-font-weight: 600;
+  --e-global-typography-secondary-font-family: "Poppins";
+  --e-global-typography-secondary-font-weight: 400;
+  --e-global-typography-text-font-family: "Poppins";
+  --e-global-typography-text-font-weight: 400;
+  --e-global-typography-accent-font-family: "Roboto";
+  --e-global-typography-accent-font-weight: 500;
+  color: #003228;
+}
+
+/* Apply primary color to navigation elements */
+.app__app-bar {
+  background-color: var(--e-global-color-primary) !important;
+}
+
+/* Ensure text in navigation bar is white */
+.app__app-bar * {
+  color: white !important;
+}
+
+/* Apply accent color to primary buttons and links */
+.rui-button--color-primary {
+  background-color: var(--e-global-color-accent) !important;
+}
+
+/* Apply text color to body text */
+body {
+  color: var(--e-global-color-text);
+  font-family: var(--e-global-typography-text-font-family);
+  font-weight: var(--e-global-typography-text-font-weight);
+}
+
 html {
-  @apply overflow-y-hidden #{!important};
+  @apply overflow-y-hidden !important;
   @apply max-h-screen;
 
   // Fix the issue where the weird font looks bolder than it is supposed to be.
@@ -14,11 +54,11 @@ html {
 
 body {
   @apply transition-all bg-rui-grey-50 dark:bg-[#121212] overflow-x-hidden h-[calc(100vh-4rem)] scroll-smooth scroll-pt-16;
-  @apply mt-16 overflow-y-auto #{!important};
+  @apply mt-16 overflow-y-auto !important;
 
   @media only screen and (max-width: 767px) {
     @apply h-[calc(100vh-3.5rem)];
-    @apply mt-14 #{!important};
+    @apply mt-14 !important;
   }
 }
 
@@ -28,7 +68,7 @@ body {
 }
 
 aside {
-  @apply max-w-[100vw] top-[3.5rem] md:top-[4rem] max-h-[calc(100vh-3.5rem)] md:max-h-[calc(100vh-4rem)] #{!important};
+  @apply max-w-[100vw] top-[3.5rem] md:top-[4rem] max-h-[calc(100vh-3.5rem)] md:max-h-[calc(100vh-4rem)] !important;
 }
 
 .table-inside-dialog {
@@ -72,5 +112,9 @@ a {
 }
 
 .text-truncate {
-  @apply whitespace-nowrap overflow-hidden text-ellipsis #{!important};
+  @apply whitespace-nowrap overflow-hidden text-ellipsis !important;
+}
+
+.container-custom {
+  background-color: var(--e-global-color-primary) !important;
 }

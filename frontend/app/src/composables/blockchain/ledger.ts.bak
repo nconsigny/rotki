@@ -1,0 +1,178 @@
+import type { DeviceManagementKit } from '@ledgerhq/device-management-kit';
+import type { SignerEth } from '@ledgerhq/device-signer-kit-ethereum';
+import {
+  ConsoleLogger,
+  DeviceManagementKitBuilder,
+  OpenAppCommand,
+} from '@ledgerhq/device-management-kit';
+import { SignerEthBuilder } from '@ledgerhq/device-signer-kit-ethereum';
+import { webHidTransportFactory } from '@ledgerhq/device-transport-kit-web-hid';
+
+export interface LedgerAddress {
+  address: string;
+  derivationPath: string;
+  index: number;
+}
+
+interface LedgerDeviceInfo {
+  sessionId: string;
+  deviceName: string;
+  isConnected: boolean;
+}
+
+export function useLedger() {
+  const { t } = useI18n({ useScope: 'global' });
+  
+  const dmk = ref<DeviceManagementKit | null>(null);
+  const deviceInfo = ref<LedgerDeviceInfo | null>(null);
+  const isConnecting = ref(false);
+  const isDerivingAddresses = ref(false);
+  const error = ref<string>('');
+
+  // Initialize DMK instance
+  function initializeDMK(): DeviceManagementKit {
+    return new DeviceManagementKitBuilder()
+      .addLogger(new ConsoleLogger())
+      .addTransport(webHidTransportFactory)
+      .build();
+  }
+
+  // Connect to Ledger device
+  async function connectDevice(): Promise<boolean> {
+    try {
+      set(isConnecting, true);
+      set(error, '');
+
+      if (!get(dmk)) {
+        set(dmk, initializeDMK());
+      }
+
+      const dmkInstance = get(dmk)!;
+      const devices = await dmkInstance.getConnectedDevice();
+      
+      if (devices.length === 0) {
+        throw new Error(t('ledger.errors.no_device_found'));
+      }
+
+      const device = devices[0];
+      const sessionId = await dmkInstance.connect({ device });
+      
+      set(deviceInfo, {
+        sessionId,
+        deviceName: device.name || 'Ledger Device',
+        isConnected: true,
+      });
+
+      // Open Ethereum app
+      const openAppCommand = new OpenAppCommand({ appName: 'Ethereum' });
+      await dmkInstance.sendCommand({ 
+        sessionId, 
+        command: openAppCommand,
+        abortTimeout: 30000 
+      });
+
+      return true;
+    } catch (err: any) {
+      set(error, err.message || t('ledger.errors.connection_failed'));
+      return false;
+    } finally {
+      set(isConnecting, false);
+    }
+  }
+
+  // Disconnect from device
+  async function disconnectDevice(): Promise<void> {
+    try {
+      const dmkInstance = get(dmk);
+      const device = get(deviceInfo);
+      
+      if (dmkInstance && device?.sessionId) {
+        await dmkInstance.disconnect({ sessionId: device.sessionId });
+      }
+      
+      set(deviceInfo, null);
+      set(dmk, null);
+    } catch (err: any) {
+      console.error('Error disconnecting from Ledger:', err);
+    }
+  }
+
+  // Derive Ethereum addresses from Ledger
+  async function deriveEthereumAddresses(count: number = 10): Promise<LedgerAddress[]> {
+    try {
+      set(isDerivingAddresses, true);
+      set(error, '');
+
+      const dmkInstance = get(dmk);
+      const device = get(deviceInfo);
+
+      if (!dmkInstance || !device?.sessionId) {
+        throw new Error(t('ledger.errors.device_not_connected'));
+      }
+
+      const signerEth = new SignerEthBuilder({
+        dmk: dmkInstance,
+        sessionId: device.sessionId,
+        originToken: 'rotki-app', // This should be provided by Ledger for production
+      }).build();
+
+      const addresses: LedgerAddress[] = [];
+      
+      for (let i = 0; i < count; i++) {
+        const derivationPath = `m/44'/60'/0'/0/${i}`;
+        
+        try {
+          const result = await signerEth.getAddress(derivationPath);
+
+          if (result && typeof result === 'object' && 'address' in result) {
+            addresses.push({
+              address: result.address as string,
+              derivationPath,
+              index: i,
+            });
+          } else {
+            console.warn(`Failed to derive address at index ${i}:`, result);
+          }
+        } catch (addressError: any) {
+          console.warn(`Error deriving address at index ${i}:`, addressError);
+          // Continue with next address instead of failing completely
+        }
+      }
+
+      if (addresses.length === 0) {
+        throw new Error(t('ledger.errors.no_addresses_derived'));
+      }
+
+      return addresses;
+    } catch (err: any) {
+      set(error, err.message || t('ledger.errors.address_derivation_failed'));
+      throw err;
+    } finally {
+      set(isDerivingAddresses, false);
+    }
+  }
+
+  // Check if WebHID is supported
+  function isWebHIDSupported(): boolean {
+    return 'hid' in navigator;
+  }
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    disconnectDevice();
+  });
+
+  return {
+    // State
+    deviceInfo: readonly(deviceInfo),
+    isConnecting: readonly(isConnecting),
+    isDerivingAddresses: readonly(isDerivingAddresses),
+    error: readonly(error),
+
+    // Methods
+    connectDevice,
+    disconnectDevice,
+    deriveEthereumAddresses,
+    isWebHIDSupported,
+  };
+} 

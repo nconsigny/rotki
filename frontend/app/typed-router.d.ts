@@ -53,6 +53,7 @@ declare module 'vue-router/auto-routes' {
     '/onchain/': RouteRecordInfo<'/onchain/', '/onchain', Record<never, never>, Record<never, never>>,
     '/onchain/send/': RouteRecordInfo<'/onchain/send/', '/onchain/send', Record<never, never>, Record<never, never>>,
     'playground': RouteRecordInfo<'playground', '/playground', Record<never, never>, Record<never, never>>,
+    'ledger-demo': RouteRecordInfo<'ledger-demo', '/playground/ledger-demo', Record<never, never>, Record<never, never>>,
     'price-manager': RouteRecordInfo<'price-manager', '/price-manager', Record<never, never>, Record<never, never>>,
     'price-manager-historic': RouteRecordInfo<'price-manager-historic', '/price-manager/historic', Record<never, never>, Record<never, never>>,
     'price-manager-current': RouteRecordInfo<'price-manager-current', '/price-manager/latest', Record<never, never>, Record<never, never>>,

@@ -39,7 +39,7 @@ withDefaults(
         :href="href"
         :tag="href ? 'a' : 'button'"
         target="_blank"
-        :class="[className, !size && '!w-12 !h-12', !customColor && '!text-rui-text-secondary']"
+        :class="[className, !size && '!w-12 !h-12', !customColor && '!text-white']"
         :size="size"
         :retain-focus-on-click="retainFocusOnClick"
         v-bind="$attrs"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import WalletImportSelection from '@/components/accounts/blockchain/WalletImportSelection.vue';
+// import LedgerAddressImport from '@/components/accounts/blockchain/LedgerAddressImport.vue';
 import { useInterop } from '@/composables/electron-interop';
 import { useMessageStore } from '@/store/message';
 
@@ -33,44 +34,55 @@ async function importAddresses() {
 </script>
 
 <template>
-  <DefineButton #default="{ buttonDisabled, onClick }">
-    <RuiTooltip :disabled="disabled">
-      <template #activator>
-        <RuiButton
-          variant="outlined"
-          color="primary"
-          class="min-h-[3.5rem] relative"
-          :class="{ 'opacity-50': buttonDisabled || disabled }"
-          :disabled="buttonDisabled || disabled"
-          @click="onClick?.()"
-        >
-          <RuiIcon name="lu-wallet-minimal" />
-          <template #append>
-            <div class="absolute w-4 h-4 bg-current rounded-full text-primary right-2 bottom-2 flex items-center justify-center">
-              <RuiIcon
-                name="lu-download"
-                class="text-white"
-                size="10"
-              />
-            </div>
+  <div class="flex gap-2">
+    <!-- Browser Wallet Import -->
+    <div>
+      <DefineButton #default="{ buttonDisabled, onClick }">
+        <RuiTooltip :disabled="disabled">
+          <template #activator>
+            <RuiButton
+              variant="outlined"
+              color="primary"
+              class="min-h-[3.5rem] relative"
+              :class="{ 'opacity-50': buttonDisabled || disabled }"
+              :disabled="buttonDisabled || disabled"
+              @click="onClick?.()"
+            >
+              <RuiIcon name="lu-wallet-minimal" />
+              <template #append>
+                <div class="absolute w-4 h-4 bg-current rounded-full text-primary right-2 bottom-2 flex items-center justify-center">
+                  <RuiIcon
+                    name="lu-download"
+                    class="text-white"
+                    size="10"
+                  />
+                </div>
+              </template>
+            </RuiButton>
           </template>
-        </RuiButton>
-      </template>
-      {{ t('input_mode_select.import_from_wallet.label') }}
-    </RuiTooltip>
-  </DefineButton>
+          {{ t('input_mode_select.import_from_wallet.label') }}
+        </RuiTooltip>
+      </DefineButton>
 
-  <ReuseButton
-    v-if="isPackaged"
-    :on-click="importAddresses"
-  />
+      <ReuseButton
+        v-if="isPackaged"
+        :on-click="importAddresses"
+      />
 
-  <WalletImportSelection
-    v-else
-    @import-addresses="emit('update:addresses', $event)"
-  >
-    <template #default="{ attrs }">
-      <ReuseButton v-bind="attrs" />
-    </template>
-  </WalletImportSelection>
+      <WalletImportSelection
+        v-else
+        @import-addresses="emit('update:addresses', $event)"
+      >
+        <template #default="{ attrs }">
+          <ReuseButton v-bind="attrs" />
+        </template>
+      </WalletImportSelection>
+    </div>
+
+    <!-- Ledger Import -->
+    <!-- <LedgerAddressImport
+      :disabled="disabled"
+      @update:addresses="emit('update:addresses', $event)"
+    /> -->
+  </div>
 </template>

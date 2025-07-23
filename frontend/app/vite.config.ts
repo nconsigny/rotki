@@ -82,6 +82,9 @@ export default defineConfig({
       '@walletconnect/jsonrpc-utils',
       '@walletconnect/utils',
       'ethers',
+      '@ledgerhq/device-management-kit',
+      '@ledgerhq/device-signer-kit-ethereum',
+      '@ledgerhq/device-transport-kit-web-hid',
     ],
   },
   plugins: [

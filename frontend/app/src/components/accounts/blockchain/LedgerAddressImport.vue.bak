@@ -1,0 +1,273 @@
+<script setup lang="ts">
+import type { LedgerAddress } from '@/composables/blockchain/ledger';
+import { useLedger } from '@/composables/blockchain/ledger';
+
+const emit = defineEmits<{
+  (e: 'update:addresses', addresses: string[]): void;
+}>();
+
+const { t } = useI18n({ useScope: 'global' });
+
+const {
+  deviceInfo,
+  isConnecting,
+  isDerivingAddresses,
+  error,
+  connectDevice,
+  disconnectDevice,
+  deriveEthereumAddresses,
+  isWebHIDSupported,
+} = useLedger();
+
+const showDialog = ref(false);
+const addresses = ref<LedgerAddress[]>([]);
+const selectedAddresses = ref<Set<string>>(new Set());
+const isImporting = ref(false);
+
+const isConnected = computed(() => get(deviceInfo)?.isConnected ?? false);
+const hasAddresses = computed(() => get(addresses).length > 0);
+const selectedCount = computed(() => get(selectedAddresses).size);
+
+async function handleConnect() {
+  const success = await connectDevice();
+  if (success) {
+    await loadAddresses();
+  }
+}
+
+async function loadAddresses() {
+  try {
+    const derivedAddresses = await deriveEthereumAddresses(10);
+    set(addresses, derivedAddresses);
+    // Auto-select first address
+    if (derivedAddresses.length > 0) {
+      get(selectedAddresses).add(derivedAddresses[0].address);
+    }
+  } catch (err) {
+    console.error('Failed to load addresses:', err);
+  }
+}
+
+function toggleAddressSelection(address: string) {
+  const selected = get(selectedAddresses);
+  if (selected.has(address)) {
+    selected.delete(address);
+  } else {
+    selected.add(address);
+  }
+}
+
+function selectAllAddresses() {
+  const selected = get(selectedAddresses);
+  get(addresses).forEach(addr => selected.add(addr.address));
+}
+
+function clearSelection() {
+  get(selectedAddresses).clear();
+}
+
+async function importSelectedAddresses() {
+  const selected = Array.from(get(selectedAddresses));
+  if (selected.length === 0) return;
+
+  set(isImporting, true);
+  try {
+    emit('update:addresses', selected);
+    set(showDialog, false);
+    await disconnectDevice();
+    // Reset state
+    set(addresses, []);
+    get(selectedAddresses).clear();
+  } finally {
+    set(isImporting, false);
+  }
+}
+
+function closeDialog() {
+  set(showDialog, false);
+  disconnectDevice();
+  set(addresses, []);
+  get(selectedAddresses).clear();
+}
+
+function openDialog() {
+  if (!isWebHIDSupported()) {
+    // Show error message about WebHID support
+    return;
+  }
+  set(showDialog, true);
+}
+</script>
+
+<template>
+  <div>
+    <RuiTooltip>
+      <template #activator>
+        <RuiButton
+          variant="outlined"
+          color="primary"
+          class="min-h-[3.5rem] relative"
+          :disabled="!isWebHIDSupported()"
+          @click="openDialog()"
+        >
+          <RuiIcon name="lu-usb" />
+          <template #append>
+            <div class="absolute w-4 h-4 bg-current rounded-full text-primary right-2 bottom-2 flex items-center justify-center">
+              <RuiIcon
+                name="lu-download"
+                class="text-white"
+                size="10"
+              />
+            </div>
+          </template>
+        </RuiButton>
+      </template>
+      {{ isWebHIDSupported() ? t('ledger.import.tooltip') : t('ledger.errors.webhid_not_supported') }}
+    </RuiTooltip>
+
+    <RuiDialog
+      v-model="showDialog"
+      max-width="800"
+      persistent
+    >
+      <RuiCard>
+        <template #header>
+          {{ t('ledger.import.dialog.title') }}
+        </template>
+
+        <div class="p-6">
+          <!-- Connection Status -->
+          <div v-if="!isConnected" class="text-center py-8">
+            <div class="mb-4">
+              <RuiIcon
+                name="lu-usb"
+                size="48"
+                class="text-rui-text-secondary"
+              />
+            </div>
+            <h3 class="text-lg font-medium mb-2">
+              {{ t('ledger.import.connect.title') }}
+            </h3>
+            <p class="text-rui-text-secondary mb-6">
+              {{ t('ledger.import.connect.description') }}
+            </p>
+            <RuiButton
+              color="primary"
+              :loading="isConnecting"
+              @click="handleConnect()"
+            >
+              {{ t('ledger.import.connect.button') }}
+            </RuiButton>
+          </div>
+
+          <!-- Loading Addresses -->
+          <div v-else-if="isDerivingAddresses" class="text-center py-8">
+            <RuiProgress
+              circular
+              color="primary"
+              class="mb-4"
+            />
+            <p class="text-rui-text-secondary">
+              {{ t('ledger.import.loading_addresses') }}
+            </p>
+          </div>
+
+          <!-- Address Selection -->
+          <div v-else-if="hasAddresses">
+            <div class="flex justify-between items-center mb-4">
+              <h4 class="text-lg font-medium">
+                {{ t('ledger.import.addresses.title') }}
+              </h4>
+              <div class="flex gap-2">
+                <RuiButton
+                  variant="outlined"
+                  size="sm"
+                  @click="selectAllAddresses()"
+                >
+                  {{ t('common.actions.select_all') }}
+                </RuiButton>
+                <RuiButton
+                  variant="outlined"
+                  size="sm"
+                  @click="clearSelection()"
+                >
+                  {{ t('common.actions.clear_selection') }}
+                </RuiButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 max-h-96 overflow-y-auto">
+              <div
+                v-for="addr in addresses"
+                :key="addr.address"
+                class="flex items-center p-3 border rounded-lg hover:bg-rui-grey-50 dark:hover:bg-rui-grey-800"
+                :class="{
+                  'border-primary bg-primary/5': selectedAddresses.has(addr.address),
+                  'border-rui-grey-300 dark:border-rui-grey-600': !selectedAddresses.has(addr.address)
+                }"
+              >
+                <RuiCheckbox
+                  :model-value="selectedAddresses.has(addr.address)"
+                  color="primary"
+                  class="mr-3"
+                  @update:model-value="toggleAddressSelection(addr.address)"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="font-mono text-sm truncate">
+                    {{ addr.address }}
+                  </div>
+                  <div class="text-xs text-rui-text-secondary">
+                    {{ t('ledger.import.addresses.derivation_path') }}: {{ addr.derivationPath }}
+                  </div>
+                </div>
+                <div class="text-xs text-rui-text-secondary ml-2">
+                  #{{ addr.index }}
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 text-sm text-rui-text-secondary">
+              {{ t('ledger.import.addresses.selected_count', { count: selectedCount }) }}
+            </div>
+          </div>
+
+          <!-- Error State -->
+          <div v-if="error" class="text-center py-4">
+            <RuiAlert
+              type="error"
+              class="mb-4"
+            >
+              {{ error }}
+            </RuiAlert>
+            <RuiButton
+              variant="outlined"
+              @click="handleConnect()"
+            >
+              {{ t('common.actions.retry') }}
+            </RuiButton>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <RuiButton
+              variant="outlined"
+              @click="closeDialog()"
+            >
+              {{ t('common.actions.cancel') }}
+            </RuiButton>
+            <RuiButton
+              v-if="hasAddresses"
+              color="primary"
+              :disabled="selectedCount === 0"
+              :loading="isImporting"
+              @click="importSelectedAddresses()"
+            >
+              {{ t('ledger.import.addresses.import_button', { count: selectedCount }) }}
+            </RuiButton>
+          </div>
+        </template>
+      </RuiCard>
+    </RuiDialog>
+  </div>
+</template> 

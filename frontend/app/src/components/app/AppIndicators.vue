@@ -38,7 +38,7 @@ const { showHelpBar, showNotesSidebar, showNotificationBar, showPinned } = store
     >
       <RuiButton
         variant="text"
-        class="!text-rui-text-secondary"
+        class="!text-white"
         icon
       >
         <RuiIcon name="lu-code-xml" />
