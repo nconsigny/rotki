@@ -3,7 +3,8 @@ import TrezorConnect from '@trezor/connect-web'
 
 const manifest = {
   email: 'dev@rotki.io',
-  appUrl: 'https://rotki.com'
+  appUrl: 'https://rotki.com',
+  appName: 'Rotki'
 }
 
 export interface TrezorAddress {
@@ -88,14 +89,14 @@ export function useTrezor() {
   }
 
   /**
-   * Derive an EVM (ETH/L2) address at hdIndex (defaults to the next unused).
-   * Uses the canonical BIP-44 path m/44'/60'/0'/0/n.
+   * Derive an EVM (ETH/L2) address at account index.
+   * Uses the correct BIP-44 path for account-based cryptocurrencies: m/44'/60'/account'/0/0.
    */
-  const deriveEth = async (hdIndex?: number): Promise<string> => {
+  const deriveEth = async (accountIndex?: number): Promise<string> => {
     if (!get(ready)) throw new Error(t('trezor.errors.not_initialized'));
     
-    const i = hdIndex ?? get(addresses).length;
-    const path = `m/44'/60'/0'/0/${i}`;
+    const i = accountIndex ?? get(addresses).length;
+    const path = `m/44'/60'/${i}'/0/0`;
 
     const r = await TrezorConnect.ethereumGetAddress({
       path,
@@ -135,11 +136,11 @@ export function useTrezor() {
           const address = await deriveEth(i);
           newAddresses.push({
             address,
-            derivationPath: `m/44'/60'/0'/0/${i}`,
+            derivationPath: `m/44'/60'/${i}'/0/0`,
             index: i,
           });
         } catch (addressError: any) {
-          console.warn(`Error deriving address at index ${i}:`, addressError);
+          console.warn(`Error deriving address at account ${i}:`, addressError);
           // Continue with next address instead of failing completely
         }
       }

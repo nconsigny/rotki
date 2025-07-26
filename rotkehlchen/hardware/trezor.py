@@ -1,14 +1,14 @@
 # backend/rotkehlchen/hardware/trezor.py
 from trezorlib.client import get_default_client
 from trezorlib.tools import parse_path
-from trezorlib.ethereum import get_address   # or trezorlib.bitcoin.get_address
+from trezorlib.ethereum import get_address
 
-def derive_eth_address(index: int = 0) -> str:
+def derive_eth_address(account_index: int = 0) -> str:
     """
-    Derive an Ethereum address from a Trezor device at the specified index.
+    Derive an Ethereum address from a Trezor device at the specified account index.
     
     Args:
-        index: The derivation index for the BIP-44 path m/44'/60'/0'/0/{index}
+        account_index: The account index for the BIP-44 path m/44'/60'/{account}'/0/0
         
     Returns:
         The derived Ethereum address as a string
@@ -17,16 +17,16 @@ def derive_eth_address(index: int = 0) -> str:
         Exception: If the Trezor device is not connected or derivation fails
     """
     client = get_default_client()             # USB/WebUSB native
-    path   = parse_path(f"m/44'/60'/0'/0/{index}")
+    path   = parse_path(f"m/44'/60'/{account_index}'/0/0")
     return get_address(client, path)
 
-def derive_multiple_eth_addresses(count: int = 10, start_index: int = 0) -> list[str]:
+def derive_multiple_eth_addresses(count: int = 10, start_account: int = 0) -> list[str]:
     """
     Derive multiple Ethereum addresses from a Trezor device.
     
     Args:
         count: Number of addresses to derive
-        start_index: Starting index for derivation
+        start_account: Starting account index for derivation
         
     Returns:
         List of derived Ethereum addresses
@@ -37,8 +37,8 @@ def derive_multiple_eth_addresses(count: int = 10, start_index: int = 0) -> list
     addresses = []
     client = get_default_client()
     
-    for i in range(start_index, start_index + count):
-        path = parse_path(f"m/44'/60'/0'/0/{i}")
+    for i in range(start_account, start_account + count):
+        path = parse_path(f"m/44'/60'/{i}'/0/0")
         address = get_address(client, path)
         addresses.append(address)
     

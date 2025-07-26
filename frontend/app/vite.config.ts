@@ -11,6 +11,7 @@ import VueRouter from 'unplugin-vue-router/vite';
 import checker from 'vite-plugin-checker';
 import istanbul from 'vite-plugin-istanbul';
 import vueDevTools from 'vite-plugin-vue-devtools';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { defineConfig } from 'vitest/config';
 
 const PACKAGE_ROOT = __dirname;
@@ -62,12 +63,14 @@ export default defineConfig({
       '@': resolve(PACKAGE_ROOT, 'src'),
       '~@': resolve(PACKAGE_ROOT, 'src'),
       '@shared': `${join(PACKAGE_ROOT, 'shared')}/`,
+      buffer: 'buffer',
     },
     dedupe: ['vue'],
   },
   base: publicPath,
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+    global: 'globalThis',
   },
   optimizeDeps: {
     include: [
@@ -82,9 +85,8 @@ export default defineConfig({
       '@walletconnect/jsonrpc-utils',
       '@walletconnect/utils',
       'ethers',
-      '@ledgerhq/device-management-kit',
-      '@ledgerhq/device-signer-kit-ethereum',
-      '@ledgerhq/device-transport-kit-web-hid',
+      '@ledgerhq/hw-transport-webusb',
+      '@ledgerhq/hw-app-eth',
       '@trezor/connect-web',
     ],
   },
@@ -93,6 +95,16 @@ export default defineConfig({
       importMode: 'async',
     }),
     vue(),
+    nodePolyfills({
+      // Enable Buffer polyfill
+      include: ['buffer', 'process', 'util'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+      protocolImports: true,
+    }),
     checker(enableChecker
       ? {
           vueTsc: {

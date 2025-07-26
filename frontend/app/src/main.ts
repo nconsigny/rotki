@@ -1,3 +1,11 @@
+// Buffer polyfill for browser compatibility
+import { Buffer } from 'buffer';
+if (!window.Buffer || typeof window.Buffer.from !== 'function') {
+  window.Buffer = Buffer;
+  (globalThis as any).Buffer = Buffer;
+  console.log('Buffer polyfill applied successfully');
+}
+
 import App from '@/App.vue';
 import { useItemsPerPage } from '@/composables/session/use-items-per-page';
 import { i18n } from '@/i18n';
