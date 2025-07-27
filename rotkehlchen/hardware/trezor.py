@@ -1,39 +1,16 @@
-# backend/rotkehlchen/hardware/trezor.py
+"""Trezor hardware wallet backend support."""
 from trezorlib.client import get_default_client
 from trezorlib.tools import parse_path
 from trezorlib.ethereum import get_address
 
 def derive_eth_address(account_index: int = 0) -> str:
-    """
-    Derive an Ethereum address from a Trezor device at the specified account index.
-    
-    Args:
-        account_index: The account index for the BIP-44 path m/44'/60'/{account}'/0/0
-        
-    Returns:
-        The derived Ethereum address as a string
-        
-    Raises:
-        Exception: If the Trezor device is not connected or derivation fails
-    """
-    client = get_default_client()             # USB/WebUSB native
-    path   = parse_path(f"m/44'/60'/{account_index}'/0/0")
+    """Derive an Ethereum address from a Trezor device at the specified account index."""
+    client = get_default_client()
+    path = parse_path(f"m/44'/60'/{account_index}'/0/0")
     return get_address(client, path)
 
 def derive_multiple_eth_addresses(count: int = 10, start_account: int = 0) -> list[str]:
-    """
-    Derive multiple Ethereum addresses from a Trezor device.
-    
-    Args:
-        count: Number of addresses to derive
-        start_account: Starting account index for derivation
-        
-    Returns:
-        List of derived Ethereum addresses
-        
-    Raises:
-        Exception: If the Trezor device is not connected or derivation fails
-    """
+    """Derive multiple Ethereum addresses from a Trezor device."""
     addresses = []
     client = get_default_client()
     
@@ -45,15 +22,7 @@ def derive_multiple_eth_addresses(count: int = 10, start_account: int = 0) -> li
     return addresses
 
 def get_trezor_device_info() -> dict[str, str]:
-    """
-    Get information about the connected Trezor device.
-    
-    Returns:
-        Dictionary containing device information
-        
-    Raises:
-        Exception: If no Trezor device is connected
-    """
+    """Get information about the connected Trezor device."""
     client = get_default_client()
     features = client.features
     
@@ -66,14 +35,9 @@ def get_trezor_device_info() -> dict[str, str]:
     }
 
 def is_trezor_connected() -> bool:
-    """
-    Check if a Trezor device is connected and accessible.
-    
-    Returns:
-        True if a Trezor device is connected, False otherwise
-    """
+    """Check if a Trezor device is connected and accessible."""
     try:
         client = get_default_client()
         return client is not None
     except Exception:
-        return False 
+        return False

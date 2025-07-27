@@ -1,178 +1,155 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, readonly } from 'vue'
+import { get, set } from '@vueuse/core'
+import { useI18n } from 'vue-i18n'
 import TrezorConnect from '@trezor/connect-web'
 
 const manifest = {
   email: 'dev@rotki.io',
   appUrl: 'https://rotki.com',
-  appName: 'Rotki'
+  appName: 'Rotki',
 }
 
 export interface TrezorAddress {
-  address: string;
-  derivationPath: string;
-  index: number;
+  address: string
+  derivationPath: string
+  index: number
 }
 
 interface TrezorDeviceInfo {
-  deviceId: string;
-  deviceName: string;
-  isConnected: boolean;
+  deviceId: string
+  deviceName: string
+  isConnected: boolean
 }
 
 export function useTrezor() {
-  const { t } = useI18n({ useScope: 'global' });
+  const { t } = useI18n({ useScope: 'global' })
   
-  const ready = ref(false);
-  const deviceInfo = ref<TrezorDeviceInfo | null>(null);
-  const isConnecting = ref(false);
-  const isDerivingAddresses = ref(false);
-  const addresses = ref<TrezorAddress[]>([]);
-  const error = ref<string>('');
+  const ready = ref(false)
+  const deviceInfo = ref<TrezorDeviceInfo | null>(null)
+  const isConnecting = ref(false)
+  const isDerivingAddresses = ref(false)
+  const error = ref<string>('')
 
   // Initialize Trezor Connect
   onMounted(async () => {
     try {
-      set(isConnecting, true);
-      set(error, '');
+      set(isConnecting, true)
+      set(error, '')
       
-      await TrezorConnect.init({ manifest });
-      set(ready, true);
-      set(isConnecting, false);
+      await TrezorConnect.init({ manifest })
+      set(ready, true)
+      set(isConnecting, false)
     } catch (err: any) {
-      set(error, err.message || t('trezor.errors.initialization_failed'));
-      set(isConnecting, false);
+      set(error, err.message || t('trezor.errors.initialization_failed'))
+      set(isConnecting, false)
     }
-  });
+  })
 
   // Connect to Trezor device
   async function connectDevice(): Promise<boolean> {
     try {
-      set(isConnecting, true);
-      set(error, '');
+      set(isConnecting, true)
+      set(error, '')
 
       if (!get(ready)) {
-        throw new Error(t('trezor.errors.not_initialized'));
+        throw new Error(t('trezor.errors.not_initialized'))
       }
 
-      // TrezorConnect.init already handles device connection
-      // We just need to verify the device is accessible
-      const features = await TrezorConnect.getFeatures();
+      const features = await TrezorConnect.getFeatures()
       
       if (!features.success) {
-        throw new Error(features.payload.error || t('trezor.errors.connection_failed'));
+        throw new Error(features.payload.error || t('trezor.errors.connection_failed'))
       }
 
       set(deviceInfo, {
         deviceId: features.payload.device_id || 'unknown',
         deviceName: features.payload.label || 'Trezor Device',
         isConnected: true,
-      });
+      })
 
-      return true;
+      return true
     } catch (err: any) {
-      set(error, err.message || t('trezor.errors.connection_failed'));
-      return false;
+      set(error, err.message || t('trezor.errors.connection_failed'))
+      return false
     } finally {
-      set(isConnecting, false);
+      set(isConnecting, false)
     }
   }
 
   // Disconnect from device
   async function disconnectDevice(): Promise<void> {
     try {
-      // TrezorConnect handles disconnection automatically
-      set(deviceInfo, null);
-      set(addresses, []);
+      set(deviceInfo, null)
     } catch (err: any) {
-      console.error('Error disconnecting from Trezor:', err);
+      console.error('Error disconnecting from Trezor:', err)
     }
   }
 
-  /**
-   * Derive an EVM (ETH/L2) address at account index.
-   * Uses the correct BIP-44 path for account-based cryptocurrencies: m/44'/60'/account'/0/0.
-   */
-  const deriveEth = async (accountIndex?: number): Promise<string> => {
-    if (!get(ready)) throw new Error(t('trezor.errors.not_initialized'));
+  // Derive an Ethereum address at account index
+  const deriveEth = async (accountIndex: number = 0): Promise<string> => {
+    if (!get(ready)) throw new Error(t('trezor.errors.not_initialized'))
     
-    const i = accountIndex ?? get(addresses).length;
-    const path = `m/44'/60'/${i}'/0/0`;
+    const path = `m/44'/60'/${accountIndex}'/0/0`
 
-    const r = await TrezorConnect.ethereumGetAddress({
+    const result = await TrezorConnect.ethereumGetAddress({
       path,
-      showOnTrezor: true // **always** confirm on-device
-    });
+      showOnTrezor: true,
+    })
     
-    if (!r.success) throw new Error(r.payload.error);
+    if (!result.success) throw new Error(result.payload.error)
 
-    const newAddress: TrezorAddress = {
-      address: r.payload.address,
-      derivationPath: path,
-      index: i,
-    };
-
-    // Update addresses array
-    const currentAddresses = get(addresses);
-    currentAddresses[i] = newAddress;
-    set(addresses, [...currentAddresses]);
-
-    return r.payload.address;
-  };
+    return result.payload.address
+  }
 
   // Derive multiple Ethereum addresses from Trezor
-  async function deriveEthereumAddresses(count: number = 10): Promise<TrezorAddress[]> {
+  async function deriveEthereumAddresses(count: number = 10, startIndex: number = 0): Promise<TrezorAddress[]> {
     try {
-      set(isDerivingAddresses, true);
-      set(error, '');
+      set(isDerivingAddresses, true)
+      set(error, '')
 
       if (!get(ready)) {
-        throw new Error(t('trezor.errors.not_initialized'));
+        throw new Error(t('trezor.errors.not_initialized'))
       }
 
-      const newAddresses: TrezorAddress[] = [];
+      const addresses: TrezorAddress[] = []
       
       for (let i = 0; i < count; i++) {
         try {
-          const address = await deriveEth(i);
-          newAddresses.push({
+          const accountIndex = startIndex + i
+          const address = await deriveEth(accountIndex)
+          addresses.push({
             address,
-            derivationPath: `m/44'/60'/${i}'/0/0`,
-            index: i,
-          });
+            derivationPath: `m/44'/60'/${accountIndex}'/0/0`,
+            index: accountIndex,
+          })
         } catch (addressError: any) {
-          console.warn(`Error deriving address at account ${i}:`, addressError);
-          // Continue with next address instead of failing completely
+          console.warn(`Error deriving address at account ${startIndex + i}:`, addressError)
+          continue
         }
       }
 
-      if (newAddresses.length === 0) {
-        throw new Error(t('trezor.errors.no_addresses_derived'));
+      if (addresses.length === 0) {
+        throw new Error(t('trezor.errors.no_addresses_derived'))
       }
 
-      set(addresses, newAddresses);
-      return newAddresses;
+      return addresses
     } catch (err: any) {
-      set(error, err.message || t('trezor.errors.address_derivation_failed'));
-      throw err;
+      set(error, err.message || t('trezor.errors.address_derivation_failed'))
+      throw err
     } finally {
-      set(isDerivingAddresses, false);
+      set(isDerivingAddresses, false)
     }
   }
 
-  // Check if browser supports WebUSB (for Chrome/Edge/Brave)
+  // Check if browser supports WebUSB
   function isWebUSBSupported(): boolean {
-    return 'usb' in navigator;
-  }
-
-  // Check if Trezor Bridge is needed (for Firefox/Safari)
-  function isTrezorBridgeNeeded(): boolean {
-    return !isWebUSBSupported();
+    return 'usb' in navigator
   }
 
   // Cleanup on unmount
   onUnmounted(() => {
-    disconnectDevice();
-  });
+    disconnectDevice()
+  })
 
   return {
     // State
@@ -180,7 +157,6 @@ export function useTrezor() {
     deviceInfo: readonly(deviceInfo),
     isConnecting: readonly(isConnecting),
     isDerivingAddresses: readonly(isDerivingAddresses),
-    addresses: readonly(addresses),
     error: readonly(error),
 
     // Methods
@@ -189,6 +165,5 @@ export function useTrezor() {
     deriveEth,
     deriveEthereumAddresses,
     isWebUSBSupported,
-    isTrezorBridgeNeeded,
-  };
-} 
+  }
+}
