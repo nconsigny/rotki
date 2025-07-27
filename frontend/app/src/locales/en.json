@@ -3013,34 +3013,6 @@
       "label": "XPUB"
     }
   },
-  "ledger": {
-    "errors": {
-      "address_derivation_failed": "Failed to derive addresses from Ledger device",
-      "connection_failed": "Failed to connect to Ledger device",
-      "device_not_connected": "Ledger device is not connected",
-      "no_addresses_derived": "No addresses could be derived from the device",
-      "no_device_found": "No Ledger device found. Please connect your device and unlock it.",
-      "webhid_not_supported": "WebHID is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser."
-    },
-    "import": {
-      "addresses": {
-        "derivation_path": "Derivation Path",
-        "import_button": "Import {count} Address|Import {count} Addresses",
-        "selected_count": "{count} address selected|{count} addresses selected",
-        "title": "Select Ethereum Addresses"
-      },
-      "connect": {
-        "button": "Connect to Ledger",
-        "description": "Connect your Ledger device via USB and unlock it. Make sure the Ethereum app is installed and ready to use.",
-        "title": "Connect Your Ledger Device"
-      },
-      "dialog": {
-        "title": "Import Addresses from Ledger"
-      },
-      "loading_addresses": "Deriving addresses from your Ledger device...",
-      "tooltip": "Import addresses from Ledger device"
-    }
-  },
   "kraken_page": {
     "loading": "Your Kraken staking information is loading...",
     "page": {
@@ -3069,6 +3041,34 @@
       "historical": "Historical"
     },
     "title": "Earned Per Asset"
+  },
+  "ledger": {
+    "errors": {
+      "address_derivation_failed": "Failed to derive addresses from Ledger device",
+      "connection_failed": "Failed to connect to Ledger device",
+      "device_not_connected": "Ledger device is not connected",
+      "no_addresses_derived": "No addresses could be derived from the device",
+      "no_device_found": "No Ledger device found. Please connect your device and unlock it.",
+      "webhid_not_supported": "WebHID is not supported in this browser. Please use Chrome, Edge, or another Chromium-based browser."
+    },
+    "import": {
+      "addresses": {
+        "derivation_path": "Derivation Path",
+        "import_button": "Import {count} Address|Import {count} Addresses",
+        "selected_count": "{count} address selected|{count} addresses selected",
+        "title": "Select Ethereum Addresses"
+      },
+      "connect": {
+        "button": "Connect to Ledger",
+        "description": "Connect your Ledger device via USB and unlock it. Make sure the Ethereum app is installed and ready to use.",
+        "title": "Connect Your Ledger Device"
+      },
+      "dialog": {
+        "title": "Import Addresses from Ledger"
+      },
+      "loading_addresses": "Deriving addresses from your Ledger device...",
+      "tooltip": "Import addresses from Ledger device"
+    }
   },
   "liquity_page": {
     "no_premium": "The Liquity staking statistic page is not included in the FREE version"

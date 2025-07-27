@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import WalletImportSelection from '@/components/accounts/blockchain/WalletImportSelection.vue';
+
 // import LedgerAddressImport from '@/components/accounts/blockchain/LedgerAddressImport.vue';
 import { useInterop } from '@/composables/electron-interop';
 import { useMessageStore } from '@/store/message';

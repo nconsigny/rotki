@@ -1,10 +1,5 @@
 // Buffer polyfill for browser compatibility
-import { Buffer } from 'buffer';
-if (!window.Buffer || typeof window.Buffer.from !== 'function') {
-  window.Buffer = Buffer;
-  (globalThis as any).Buffer = Buffer;
-  console.log('Buffer polyfill applied successfully');
-}
+import { Buffer } from 'node:buffer';
 
 import App from '@/App.vue';
 import { useItemsPerPage } from '@/composables/session/use-items-per-page';
@@ -26,6 +21,12 @@ import './main.scss';
 import 'roboto-fontface/css/roboto/roboto-fontface.css';
 import 'typeface-roboto-mono';
 import 'flag-icons/css/flag-icons.min.css';
+
+if (!window.Buffer || typeof window.Buffer.from !== 'function') {
+  window.Buffer = Buffer;
+  (globalThis as any).Buffer = Buffer;
+  console.log('Buffer polyfill applied successfully');
+}
 
 const isDevelopment = checkIfDevelopment() && !import.meta.env.VITE_TEST;
 const IS_CLIENT = typeof window !== 'undefined';

@@ -75,9 +75,9 @@ function setAddress(addresses: string[]) {
   console.log('🔧 AddressInput.setAddress called with:', {
     addresses,
     count: addresses.length,
-    currentMultiple: get(multiple)
+    currentMultiple: get(multiple),
   });
-  
+
   if (addresses.length === 1) {
     set(address, addresses[0]);
     set(userAddresses, '');
@@ -88,14 +88,14 @@ function setAddress(addresses: string[]) {
     // For multiple addresses, set the multiple flag first, then the addresses
     set(address, '');
     set(multiple, true);
-    
+
     // Use nextTick to ensure the multiple checkbox is checked before setting addresses
     nextTick(() => {
       set(userAddresses, addresses.join(',\n'));
-      console.log('✅ Set multiple address mode:', { 
-        userAddresses: addresses.join(',\n'), 
+      console.log('✅ Set multiple address mode:', {
+        addressCount: addresses.length,
         multiple: true,
-        addressCount: addresses.length 
+        userAddresses: addresses.join(',\n'),
       });
     });
   }
@@ -180,17 +180,18 @@ watch(errorMessages, (errors) => {
 });
 
 watch(multiple, (newMultiple, oldMultiple) => {
-  console.log('🔄 Multiple checkbox changed:', { newMultiple, oldMultiple, currentUserAddresses: get(userAddresses) });
+  console.log('🔄 Multiple checkbox changed:', { currentUserAddresses: get(userAddresses), newMultiple, oldMultiple });
   get(v$).$clearExternalResults();
-  
+
   // Only clear userAddresses when manually switching from multiple to single mode
   // and when we don't have addresses set (to avoid clearing hardware wallet addresses)
   if (!newMultiple && oldMultiple) {
     // Don't clear if we have content in userAddresses (likely from hardware wallet)
     if (get(userAddresses).trim() === '') {
-  set(userAddresses, '');
+      set(userAddresses, '');
       console.log('🧹 Cleared empty userAddresses due to manual unchecking');
-    } else {
+    }
+    else {
       console.log('🛡️ Preserved userAddresses content:', get(userAddresses));
     }
   }

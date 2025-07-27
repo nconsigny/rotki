@@ -10,8 +10,8 @@ import { VueRouterAutoImports } from 'unplugin-vue-router';
 import VueRouter from 'unplugin-vue-router/vite';
 import checker from 'vite-plugin-checker';
 import istanbul from 'vite-plugin-istanbul';
-import vueDevTools from 'vite-plugin-vue-devtools';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import vueDevTools from 'vite-plugin-vue-devtools';
 import { defineConfig } from 'vitest/config';
 
 const PACKAGE_ROOT = __dirname;
@@ -63,7 +63,7 @@ export default defineConfig({
       '@': resolve(PACKAGE_ROOT, 'src'),
       '~@': resolve(PACKAGE_ROOT, 'src'),
       '@shared': `${join(PACKAGE_ROOT, 'shared')}/`,
-      buffer: 'buffer',
+      'buffer': 'buffer',
     },
     dedupe: ['vue'],
   },
