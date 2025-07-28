@@ -118,7 +118,7 @@ export function useTrezor(): {
     return result.payload.address;
   };
 
-  // Derive multiple Ethereum addresses from Trezor
+  // Derive multiple Ethereum addresses from Trezor using public key (no device confirmations)
   async function deriveEthereumAddresses(count: number = 5, startIndex: number = 0): Promise<TrezorAddress[]> {
     try {
       set(isDerivingAddresses, true);
@@ -128,49 +128,59 @@ export function useTrezor(): {
         throw new Error(t('trezor.errors.not_initialized'));
       }
 
-      const addresses: TrezorAddress[] = [];
-      
-      // Derive addresses in batch for better performance
-      const derivationPromises = [];
-      for (let i = 0; i < count; i++) {
-        const addressIndex = startIndex + i;
-        const path = `m/44'/60'/0'/0/${addressIndex}`;
-        
-                  derivationPromises.push(
-            TrezorConnect.ethereumGetAddress({
-              path,
-              showOnTrezor: false, // Don't show on device for batch operations
-            }).then(result => ({
-              result,
-              addressIndex,
-              path,
-            })).catch(error => ({
-              error,
-              addressIndex,
-              path,
-            }))
-          );
+      // Get the extended public key at the hardened prefix path (single device confirmation)
+      const publicKeyResult = await TrezorConnect.getPublicKey({
+        path: "m/44'/60'/0'/0", // Ethereum hardened prefix path
+        coin: 'eth',
+      });
+
+      if (!publicKeyResult.success) {
+        throw new Error(publicKeyResult.payload.error || t('trezor.errors.public_key_failed'));
       }
 
-      // Wait for all derivations to complete
-      const results = await Promise.all(derivationPromises);
-
-      // Process results
-      for (const item of results) {
-        if ('error' in item) {
-          console.warn(`Error deriving address at index ${item.addressIndex}:`, item.error);
-          continue;
-        }
-
-        const { result, addressIndex, path } = item;
-        if (result && result.success) {
+      const { HDNodeWallet } = await import('ethers');
+      const addresses: TrezorAddress[] = [];
+      
+      try {
+        // Create HD wallet from the extended public key
+        const hdWallet = HDNodeWallet.fromExtendedKey(publicKeyResult.payload.xpub);
+        
+        // Derive addresses client-side (no device interaction)
+        for (let i = 0; i < count; i++) {
+          const addressIndex = startIndex + i;
+          const childWallet = hdWallet.deriveChild(addressIndex);
+          const address = childWallet.address;
+          
           addresses.push({
-            address: result.payload.address,
-            derivationPath: path,
+            address,
+            derivationPath: `m/44'/60'/0'/0/${addressIndex}`,
             index: addressIndex,
           });
-        } else {
-          console.warn(`Failed to derive address at index ${addressIndex}:`, result?.payload?.error);
+        }
+      } catch (derivationError: any) {
+        // Fallback to individual address requests if client-side derivation fails
+        console.warn('Client-side derivation failed, falling back to individual requests:', derivationError);
+        
+        for (let i = 0; i < count; i++) {
+          const addressIndex = startIndex + i;
+          const path = `m/44'/60'/0'/0/${addressIndex}`;
+          
+          try {
+            const result = await TrezorConnect.ethereumGetAddress({
+              path,
+              showOnTrezor: false,
+            });
+            
+            if (result.success) {
+              addresses.push({
+                address: result.payload.address,
+                derivationPath: path,
+                index: addressIndex,
+              });
+            }
+          } catch (error) {
+            console.warn(`Failed to derive address at index ${addressIndex}:`, error);
+          }
         }
       }
 
