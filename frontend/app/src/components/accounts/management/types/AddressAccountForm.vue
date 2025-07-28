@@ -27,46 +27,23 @@ const label = computed<string>({ get() { const model = modelValue.value; return 
   else { modelValue.value = { ...model, data: [...model.data.map(item => ({ ...item, label }))] }; }
 } });
 const addresses = ref<string[]>([]);
-watch(addresses, (newAddresses, oldAddresses) => {
-  console.log('📝 Addresses watcher triggered:', {
-    count: newAddresses.length,
-    editMode: modelValue.value.mode === 'edit',
-    newAddresses,
-    oldAddresses,
-  });
-
-  const model = modelValue.value;
-  if (model.mode === 'edit') {
-    // In edit mode, only use the first address
-    modelValue.value = {
-      ...model,
-      data: {
-        ...model.data,
-        address: newAddresses.length > 0 ? newAddresses[0] : '',
-      },
+watch(addresses, (newAddresses) => {
+  if (hardwareType.value && newAddresses.length > 0) {
+    // Update model value when addresses are confirmed
+    const addressStr = newAddresses.join(',');
+    
+    const accountData = {
+      address: addressStr,
+      label: `Hardware Wallet Account (${newAddresses.length} addresses)`,
+      tags: null,
     };
+    
+    set(modelValue, {
+      ...get(modelValue),
+      ...accountData,
+    });
   }
-  else {
-    // In add mode, create multiple account entries
-    const accountTags = tags.value;
-    const accountLabel = label.value;
-    const accountData = newAddresses.map(address => ({
-      address,
-      label: accountLabel,
-      tags: accountTags.length > 0 ? accountTags : null,
-    }));
-
-    console.log('🏗️ Creating account data for multiple addresses:', accountData);
-
-    modelValue.value = {
-      ...model,
-      data: accountData,
-    };
-  }
-
-  // Log the final model state
-  console.log('📋 Final model value:', modelValue.value);
-}, { deep: true });
+}, { deep: true, immediate: true });
 const showWalletImport = computed(() => { const model = modelValue.value; return isEvm(model.chain) || model.chain === 'evm'; });
 const useHardware = ref(false);
 const hardwareType = ref<'ledger' | 'trezor'>('ledger');
@@ -74,7 +51,7 @@ const deriving = ref(false);
 const modelChain = computed(() => modelValue.value.chain);
 const showHardwareToggle = computed(() => isEvm(modelChain.value) || modelChain.value === 'evm');
 const { connectDevice: connectLedger, deriveEthereumAddresses: deriveLedger, error: ledgerError } = useLedger();
-const { deriveEth: deriveTrezor } = useTrezor();
+const { deriveEth: deriveTrezor, deriveEthereumAddresses: deriveTrezorAddresses } = useTrezor();
 
 // Hardware wallet address selection state
 const derivedHardwareAddresses = ref<Array<{ address: string; path: string; index: number }>>([]);
@@ -123,23 +100,13 @@ async function deriveAddresses() {
       }));
     }
     else {
-      // For Trezor, derive multiple addresses
-      const trezorAddresses = [];
-      for (let i = 0; i < 5; i++) {
-        try {
-          const address = await deriveTrezor(i);
-          trezorAddresses.push({
-            address,
-            index: i,
-            path: `m/44'/60'/${i}'/0/0`,
-          });
-        }
-        catch (error) {
-          console.warn(`Failed to derive Trezor address at index ${i}:`, error);
-          break; // Stop on first error
-        }
-      }
-      derivedHardwareAddresses.value = trezorAddresses;
+      // For Trezor, derive multiple addresses using batch method
+      const result = await deriveTrezorAddresses(5);
+      derivedHardwareAddresses.value = result.map(addr => ({
+        address: addr.address,
+        index: addr.index,
+        path: addr.derivationPath,
+      }));
     }
   }
   catch (error: any) {
@@ -155,17 +122,10 @@ async function deriveAddresses() {
 function toggleAddressSelection(index: number) {
   if (selectedAddressIndices.value.has(index)) {
     selectedAddressIndices.value.delete(index);
-    console.log(`❌ Deselected address at index ${index}`);
   }
   else {
     selectedAddressIndices.value.add(index);
-    console.log(`✅ Selected address at index ${index}`);
   }
-
-  console.log('📊 Current selection:', {
-    selectedIndices: Array.from(selectedAddressIndices.value),
-    totalSelected: selectedAddresses.value.length,
-  });
 }
 
 function selectAllAddresses() {
@@ -181,34 +141,20 @@ function deselectAllAddresses() {
 }
 
 function confirmAddressSelection() {
-  const selectedAddressList = selectedAddresses.value;
+  const selectedAddresses = derivedHardwareAddresses.value.filter(addr =>
+    selectedAddressIndices.value.has(addr.index),
+  );
 
-  console.log('🎯 Confirming address selection:', {
-    selectedAddresses: selectedAddressList,
-    selectedIndices: Array.from(selectedAddressIndices.value),
-    totalSelected: selectedAddressList.length,
-  });
-
-  if (selectedAddressList.length === 0) {
+  if (selectedAddresses.length === 0) {
     alert('Please select at least one address');
     return;
   }
 
-  // Set the addresses which will trigger the watcher and update the form
-  addresses.value = [...selectedAddressList]; // Create a new array to ensure reactivity
+  // Set the addresses - this will trigger the watcher to update modelValue
+  addresses.value = selectedAddresses.map(addr => addr.address);
+
+  // Hide the selection UI
   showAddressSelection.value = false;
-
-  // Force a re-validation of the form to enable the save button
-  nextTick(() => {
-    console.log('✅ Address confirmation complete. Form should now be ready to save.');
-    console.log('📋 Final addresses in form:', addresses.value);
-    console.log('📋 AddressInput should show:', addresses.value.length, 'addresses');
-
-    // Manually trigger validation if the address ref is available
-    if (address.value && typeof address.value.validate === 'function') {
-      address.value.validate();
-    }
-  });
 }
 
 function loadMoreAddresses() {
@@ -227,21 +173,13 @@ function loadMoreAddresses() {
         })));
       }
       else {
-        // For Trezor
-        for (let i = currentCount; i < currentCount + 10; i++) {
-          try {
-            const address = await deriveTrezor(i);
-            derivedHardwareAddresses.value.push({
-              address,
-              index: i,
-              path: `m/44'/60'/${i}'/0/0`,
-            });
-          }
-          catch (error) {
-            console.warn(`Failed to derive Trezor address at index ${i}:`, error);
-            break;
-          }
-        }
+        // For Trezor, use batch method
+        const result = await deriveTrezorAddresses(10, currentCount);
+        derivedHardwareAddresses.value.push(...result.map(addr => ({
+          address: addr.address,
+          index: addr.index,
+          path: addr.derivationPath,
+        })));
       }
     }
     catch (error: any) {
