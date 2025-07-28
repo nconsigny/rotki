@@ -34,7 +34,7 @@ export function useTrezor(): {
   isWebUSBSupported: () => boolean;
 } {
   const { t } = useI18n({ useScope: 'global' });
-
+  
   const ready = ref(false);
   const deviceInfo = ref<TrezorDeviceInfo | null>(null);
   const isConnecting = ref(false);
@@ -46,7 +46,7 @@ export function useTrezor(): {
     try {
       set(isConnecting, true);
       set(error, '');
-
+      
       await TrezorConnect.init({ manifest });
       set(ready, true);
       set(isConnecting, false);
@@ -68,7 +68,7 @@ export function useTrezor(): {
       }
 
       const features = await TrezorConnect.getFeatures();
-
+      
       if (!features.success) {
         throw new Error(features.payload.error || t('trezor.errors.connection_failed'));
       }
@@ -100,18 +100,18 @@ export function useTrezor(): {
     }
   }
 
-  // Derive an Ethereum address at account index
-  const deriveEth = async (accountIndex: number = 0): Promise<string> => {
+  // Derive an Ethereum address at address index
+  const deriveEth = async (addressIndex: number = 0): Promise<string> => {
     if (!get(ready))
       throw new Error(t('trezor.errors.not_initialized'));
-
-    const path = `m/44'/60'/${accountIndex}'/0/0`;
+    
+    const path = `m/44'/60'/0'/0/${addressIndex}`;
 
     const result = await TrezorConnect.ethereumGetAddress({
       path,
       showOnTrezor: true,
     });
-
+    
     if (!result.success)
       throw new Error(result.payload.error);
 
@@ -129,27 +129,27 @@ export function useTrezor(): {
       }
 
       const addresses: TrezorAddress[] = [];
-
+      
       // Derive addresses in batch for better performance
       const derivationPromises = [];
       for (let i = 0; i < count; i++) {
-        const accountIndex = startIndex + i;
-        const path = `m/44'/60'/${accountIndex}'/0/0`;
+        const addressIndex = startIndex + i;
+        const path = `m/44'/60'/0'/0/${addressIndex}`;
         
-        derivationPromises.push(
-          TrezorConnect.ethereumGetAddress({
-            path,
-            showOnTrezor: false, // Don't show on device for batch operations
-          }).then(result => ({
-            result,
-            accountIndex,
-            path,
-          })).catch(error => ({
-            error,
-            accountIndex,
-            path,
-          }))
-        );
+                  derivationPromises.push(
+            TrezorConnect.ethereumGetAddress({
+              path,
+              showOnTrezor: false, // Don't show on device for batch operations
+            }).then(result => ({
+              result,
+              addressIndex,
+              path,
+            })).catch(error => ({
+              error,
+              addressIndex,
+              path,
+            }))
+          );
       }
 
       // Wait for all derivations to complete
@@ -158,19 +158,19 @@ export function useTrezor(): {
       // Process results
       for (const item of results) {
         if ('error' in item) {
-          console.warn(`Error deriving address at account ${item.accountIndex}:`, item.error);
+          console.warn(`Error deriving address at index ${item.addressIndex}:`, item.error);
           continue;
         }
 
-        const { result, accountIndex, path } = item;
+        const { result, addressIndex, path } = item;
         if (result && result.success) {
           addresses.push({
             address: result.payload.address,
             derivationPath: path,
-            index: accountIndex,
+            index: addressIndex,
           });
         } else {
-          console.warn(`Failed to derive address at account ${accountIndex}:`, result?.payload?.error);
+          console.warn(`Failed to derive address at index ${addressIndex}:`, result?.payload?.error);
         }
       }
 
@@ -214,4 +214,4 @@ export function useTrezor(): {
     // State
     ready: readonly(ready),
   };
-}
+} 

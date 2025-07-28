@@ -29,7 +29,7 @@ export function useLedger(): {
   isWebUSBSupported: () => boolean;
 } {
   const { t } = useI18n({ useScope: 'global' });
-
+  
   const deviceInfo = ref<LedgerDeviceInfo | null>(null);
   const isConnecting = ref(false);
   const isDerivingAddresses = ref(false);
@@ -47,7 +47,7 @@ export function useLedger(): {
 
       const transport = await TransportWebUSB.create();
       const ethApp = new Eth(transport);
-
+      
       set(deviceInfo, {
         ethApp,
         isConnected: true,
@@ -69,11 +69,11 @@ export function useLedger(): {
   async function disconnectDevice(): Promise<void> {
     try {
       const device = get(deviceInfo);
-
+      
       if (device?.transport) {
         await device.transport.close();
       }
-
+      
       set(deviceInfo, null);
     }
     catch (error_: any) {
@@ -94,24 +94,24 @@ export function useLedger(): {
       }
 
       const addresses: LedgerAddress[] = [];
-
+      
       for (let i = 0; i < count; i++) {
-        const accountIndex = startIndex + i;
-        const derivationPath = `44'/60'/${accountIndex}'/0/0`;
-
+        const addressIndex = startIndex + i;
+        const derivationPath = `44'/60'/0'/${addressIndex}`;
+        
         try {
           const result = await device.ethApp.getAddress(derivationPath, false);
-
+          
           if (result && result.address) {
             addresses.push({
               address: result.address,
               derivationPath: `m/${derivationPath}`,
-              index: accountIndex,
+              index: addressIndex,
             });
           }
-        }
+          }
         catch (addressError: any) {
-          console.warn(`Error deriving address at account ${accountIndex}:`, addressError);
+          console.warn(`Error deriving address at index ${addressIndex}:`, addressError);
           continue;
         }
       }
@@ -143,9 +143,9 @@ export function useLedger(): {
         throw new Error(t('ledger.errors.device_not_connected', 'Ledger device not connected'));
       }
 
-      const derivationPath = `44'/60'/${index}'/0/0`;
+      const derivationPath = `44'/60'/0'/${index}`;
       const result = await device.ethApp.getAddress(derivationPath, true);
-
+      
       return result.address;
     }
     catch (error_: any) {
@@ -184,4 +184,4 @@ export function useLedger(): {
     isDerivingAddresses: readonly(isDerivingAddresses),
     isWebUSBSupported,
   };
-}
+} 
