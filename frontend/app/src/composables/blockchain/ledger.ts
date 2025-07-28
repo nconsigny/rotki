@@ -82,7 +82,7 @@ export function useLedger(): {
   }
 
   // Derive Ethereum addresses from Ledger
-  async function deriveEthereumAddresses(count: number = 1, startIndex: number = 0): Promise<LedgerAddress[]> {
+  async function deriveEthereumAddresses(count: number = 5, startIndex: number = 0): Promise<LedgerAddress[]> {
     try {
       set(isDerivingAddresses, true);
       set(error, '');

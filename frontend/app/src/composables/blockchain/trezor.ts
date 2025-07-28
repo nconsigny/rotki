@@ -119,7 +119,7 @@ export function useTrezor(): {
   };
 
   // Derive multiple Ethereum addresses from Trezor
-  async function deriveEthereumAddresses(count: number = 10, startIndex: number = 0): Promise<TrezorAddress[]> {
+  async function deriveEthereumAddresses(count: number = 5, startIndex: number = 0): Promise<TrezorAddress[]> {
     try {
       set(isDerivingAddresses, true);
       set(error, '');
@@ -130,19 +130,47 @@ export function useTrezor(): {
 
       const addresses: TrezorAddress[] = [];
 
+      // Derive addresses in batch for better performance
+      const derivationPromises = [];
       for (let i = 0; i < count; i++) {
-        try {
-          const accountIndex = startIndex + i;
-          const address = await deriveEth(accountIndex);
+        const accountIndex = startIndex + i;
+        const path = `m/44'/60'/${accountIndex}'/0/0`;
+        
+        derivationPromises.push(
+          TrezorConnect.ethereumGetAddress({
+            path,
+            showOnTrezor: false, // Don't show on device for batch operations
+          }).then(result => ({
+            result,
+            accountIndex,
+            path,
+          })).catch(error => ({
+            error,
+            accountIndex,
+            path,
+          }))
+        );
+      }
+
+      // Wait for all derivations to complete
+      const results = await Promise.all(derivationPromises);
+
+      // Process results
+      for (const item of results) {
+        if ('error' in item) {
+          console.warn(`Error deriving address at account ${item.accountIndex}:`, item.error);
+          continue;
+        }
+
+        const { result, accountIndex, path } = item;
+        if (result && result.success) {
           addresses.push({
-            address,
-            derivationPath: `m/44'/60'/${accountIndex}'/0/0`,
+            address: result.payload.address,
+            derivationPath: path,
             index: accountIndex,
           });
-        }
-        catch (addressError: any) {
-          console.warn(`Error deriving address at account ${startIndex + i}:`, addressError);
-          continue;
+        } else {
+          console.warn(`Failed to derive address at account ${accountIndex}:`, result?.payload?.error);
         }
       }
 

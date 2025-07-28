@@ -9,7 +9,6 @@ import ModuleActivator from '@/components/accounts/ModuleActivator.vue';
 import { useLedger } from '@/composables/blockchain/ledger';
 import { useTrezor } from '@/composables/blockchain/trezor';
 import { useSupportedChains } from '@/composables/info/chains';
-import { assert, Blockchain } from '@rotki/common';
 import { computed, nextTick, ref, watch } from 'vue';
 
 const modelValue = defineModel<AccountManage>({ required: true });
@@ -81,7 +80,7 @@ const { deriveEth: deriveTrezor } = useTrezor();
 const derivedHardwareAddresses = ref<Array<{ address: string; path: string; index: number }>>([]);
 const selectedAddressIndices = ref<Set<number>>(new Set());
 const currentPage = ref(1);
-const addressesPerPage = 10;
+const addressesPerPage = 5;
 const showAddressSelection = ref(false);
 
 // Computed for pagination
@@ -115,8 +114,8 @@ async function deriveAddresses() {
         throw new Error(ledgerError.value || 'Failed to connect to Ledger device');
       }
 
-      // Derive 10 addresses for initial display
-      const result = await deriveLedger(10);
+      // Derive 5 addresses for initial display
+      const result = await deriveLedger(5);
       derivedHardwareAddresses.value = result.map(addr => ({
         address: addr.address,
         index: addr.index,
@@ -126,7 +125,7 @@ async function deriveAddresses() {
     else {
       // For Trezor, derive multiple addresses
       const trezorAddresses = [];
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 5; i++) {
         try {
           const address = await deriveTrezor(i);
           trezorAddresses.push({
