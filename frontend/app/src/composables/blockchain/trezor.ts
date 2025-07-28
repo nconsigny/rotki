@@ -21,6 +21,80 @@ interface TrezorDeviceInfo {
   isConnected: boolean;
 }
 
+// Helper function to parse Trezor error messages
+function parseTrezorError(error: any): string {
+  const message = error?.message || error?.toString() || '';
+  const code = error?.code || error?.error;
+
+  // Trezor Connect specific errors
+  if (code === 'Device_CallInProgress' || message.includes('call in progress')) {
+    return 'Trezor device is busy. Please wait for the current operation to complete.';
+  }
+
+  if (code === 'Device_NotFound' || message.includes('device not found')) {
+    return 'Trezor device not found. Please connect your Trezor device and try again.';
+  }
+
+  if (code === 'Device_Disconnected' || message.includes('device disconnected')) {
+    return 'Trezor device disconnected. Please reconnect your device and try again.';
+  }
+
+  if (code === 'Device_UsedElsewhere' || message.includes('used elsewhere')) {
+    return 'Trezor device is being used by another application. Please close other wallet applications and try again.';
+  }
+
+  if (code === 'Device_Wiped' || message.includes('wiped')) {
+    return 'Trezor device has been wiped. Please set up your device again.';
+  }
+
+  if (code === 'Failure_PinInvalid' || message.includes('PIN invalid')) {
+    return 'Invalid PIN entered. Please enter the correct PIN on your Trezor device.';
+  }
+
+  if (code === 'Failure_PinCancelled' || message.includes('PIN cancelled')) {
+    return 'PIN entry was cancelled. Please try again and enter your PIN.';
+  }
+
+  if (code === 'Failure_ActionCancelled' || message.includes('cancelled') || message.includes('Cancelled')) {
+    return 'Action was cancelled on the Trezor device. Please try again and confirm the action.';
+  }
+
+  if (code === 'Failure_NotInitialized' || message.includes('not initialized')) {
+    return 'Trezor device is not initialized. Please set up your device first.';
+  }
+
+  if (message.includes('Forbidden key path') || message.includes('forbidden')) {
+    return 'The requested derivation path is not allowed. Please check your device settings.';
+  }
+
+  if (message.includes('Passphrase') || code?.includes('Passphrase')) {
+    return 'Passphrase required. Please enter your passphrase on the Trezor device.';
+  }
+
+  if (message.includes('Bridge') || message.includes('bridge')) {
+    return 'Trezor Bridge connection failed. Please install Trezor Bridge or use a supported browser with WebUSB.';
+  }
+
+  if (message.includes('popup') || message.includes('Popup')) {
+    return 'Trezor Connect popup was blocked or closed. Please allow popups for this site and try again.';
+  }
+
+  if (message.includes('Transport') || message.includes('transport')) {
+    return 'Connection to Trezor device failed. Please reconnect your device and try again.';
+  }
+
+  if (message.includes('handshake') || message.includes('Handshake')) {
+    return 'Failed to establish connection with Trezor device. Please reconnect and try again.';
+  }
+
+  if (message.includes('timeout') || message.includes('Timeout')) {
+    return 'Connection timeout. Please ensure your Trezor device is connected and unlocked.';
+  }
+
+  // Default fallback with the original error for debugging
+  return message || 'Unknown Trezor error occurred. Please try again.';
+}
+
 export function useTrezor(): {
   ready: Ref<boolean>;
   deviceInfo: Ref<TrezorDeviceInfo | null>;
@@ -59,7 +133,8 @@ export function useTrezor(): {
     }
     catch (error_: any) {
       console.error('Trezor Connect initialization failed:', error_);
-      set(error, error_.message || t('trezor.errors.initialization_failed'));
+      const userFriendlyMessage = parseTrezorError(error_);
+      set(error, userFriendlyMessage);
       set(isConnecting, false);
     }
   });
@@ -71,13 +146,13 @@ export function useTrezor(): {
       set(error, '');
 
       if (!get(ready)) {
-        throw new Error(t('trezor.errors.not_initialized'));
+        throw new Error('Trezor Connect is not initialized. Please refresh the page and try again.');
       }
 
       const features = await TrezorConnect.getFeatures();
       
       if (!features.success) {
-        throw new Error(features.payload.error || t('trezor.errors.connection_failed'));
+        throw new Error(parseTrezorError(features.payload));
       }
 
       set(deviceInfo, {
@@ -89,7 +164,9 @@ export function useTrezor(): {
       return true;
     }
     catch (error_: any) {
-      set(error, error_.message || t('trezor.errors.connection_failed'));
+      const userFriendlyMessage = parseTrezorError(error_);
+      set(error, userFriendlyMessage);
+      console.error('Trezor connection error:', error_);
       return false;
     }
     finally {
@@ -101,6 +178,7 @@ export function useTrezor(): {
   async function disconnectDevice(): Promise<void> {
     try {
       set(deviceInfo, null);
+      set(error, '');
     }
     catch (error_: any) {
       console.error('Error disconnecting from Trezor:', error_);
@@ -110,19 +188,25 @@ export function useTrezor(): {
   // Derive an Ethereum address at address index
   const deriveEth = async (addressIndex: number = 0): Promise<string> => {
     if (!get(ready))
-      throw new Error(t('trezor.errors.not_initialized'));
+      throw new Error('Trezor Connect is not initialized. Please refresh the page and try again.');
     
     const path = `m/44'/60'/0'/0/${addressIndex}`;
 
-    const result = await TrezorConnect.ethereumGetAddress({
-      path,
-      showOnTrezor: true,
-    });
-    
-    if (!result.success)
-      throw new Error(result.payload.error);
+    try {
+      const result = await TrezorConnect.ethereumGetAddress({
+        path,
+        showOnTrezor: true,
+      });
+      
+      if (!result.success)
+        throw new Error(parseTrezorError(result.payload));
 
-    return result.payload.address;
+      return result.payload.address;
+    } catch (error_: any) {
+      const userFriendlyMessage = parseTrezorError(error_);
+      console.error('Trezor address derivation error:', error_);
+      throw new Error(userFriendlyMessage);
+    }
   };
 
   // Derive multiple Ethereum addresses from Trezor using ethereumGetPublicKey bundle
@@ -132,7 +216,7 @@ export function useTrezor(): {
       set(error, '');
 
       if (!get(ready)) {
-        throw new Error(t('trezor.errors.not_initialized'));
+        throw new Error('Trezor Connect is not initialized. Please refresh the page and try again.');
       }
 
       // Create bundle of public key requests - this avoids individual "Export Ethereum address" screens
@@ -152,7 +236,7 @@ export function useTrezor(): {
       });
 
       if (!result.success) {
-        throw new Error(result.payload.error || t('trezor.errors.public_key_failed'));
+        throw new Error(parseTrezorError(result.payload));
       }
 
       const addresses: TrezorAddress[] = [];
@@ -180,14 +264,16 @@ export function useTrezor(): {
       }
 
       if (addresses.length === 0) {
-        throw new Error(t('trezor.errors.no_addresses_derived'));
+        throw new Error('No addresses could be derived. Please ensure your Trezor device is connected and unlocked.');
       }
 
       return addresses;
     }
     catch (error_: any) {
-      set(error, error_.message || t('trezor.errors.address_derivation_failed'));
-      throw error_;
+      const userFriendlyMessage = parseTrezorError(error_);
+      set(error, userFriendlyMessage);
+      console.error('Trezor address derivation error:', error_);
+      throw new Error(userFriendlyMessage);
     }
     finally {
       set(isDerivingAddresses, false);

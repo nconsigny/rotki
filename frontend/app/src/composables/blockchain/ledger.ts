@@ -16,6 +16,62 @@ export interface LedgerDeviceInfo {
   isConnected: boolean;
 }
 
+// Helper function to parse Ledger error messages
+function parseLedgerError(error: any): string {
+  const message = error?.message || error?.toString() || '';
+  const statusCode = error?.statusCode || error?.returnCode;
+
+  // Common Ledger error codes and their user-friendly messages
+  if (statusCode === 0x6985 || message.includes('0x6985')) {
+    return 'Transaction rejected by user. Please approve the action on your Ledger device.';
+  }
+  
+  if (statusCode === 0x6982 || message.includes('0x6982')) {
+    return 'Ledger device is locked. Please unlock your Ledger device and try again.';
+  }
+  
+  if (statusCode === 0x6a82 || message.includes('0x6a82')) {
+    return 'Ethereum app not found. Please open the Ethereum app on your Ledger device.';
+  }
+  
+  if (statusCode === 0x6a80 || message.includes('0x6a80')) {
+    return 'Invalid data received. Please ensure your Ledger firmware is up to date.';
+  }
+  
+  if (statusCode === 0x6700 || message.includes('0x6700')) {
+    return 'Invalid request length. Please try again or restart the Ledger connection.';
+  }
+
+  // Transport/connection errors
+  if (message.includes('No device selected') || message.includes('device not found')) {
+    return 'No Ledger device found. Please connect your Ledger device and try again.';
+  }
+  
+  if (message.includes('device disconnected') || message.includes('Transport') || message.includes('connection')) {
+    return 'Ledger device disconnected. Please reconnect your device and try again.';
+  }
+  
+  if (message.includes('timeout') || message.includes('Timeout')) {
+    return 'Connection timeout. Please unlock your Ledger device and open the Ethereum app, then try again.';
+  }
+  
+  if (message.includes('busy') || message.includes('locked')) {
+    return 'Ledger device is busy or locked. Please unlock your device and ensure no other applications are using it.';
+  }
+
+  if (message.includes('navigator.usb') || message.includes('WebUSB')) {
+    return 'WebUSB not supported. Please use Chrome, Edge, or Brave browser with HTTPS connection.';
+  }
+
+  // App-specific errors
+  if (message.includes('app') && (message.includes('not') || message.includes('close'))) {
+    return 'Please open the Ethereum app on your Ledger device and try again.';
+  }
+
+  // Default fallback with the original error for debugging
+  return message || 'Unknown Ledger error occurred. Please try again.';
+}
+
 export function useLedger(): {
   deviceInfo: Ref<LedgerDeviceInfo | null>;
   isConnecting: Ref<boolean>;
@@ -42,11 +98,20 @@ export function useLedger(): {
       set(error, '');
 
       if (!('usb' in navigator)) {
-        throw new Error(t('ledger.errors.webusb_not_supported', 'WebUSB is not supported in this browser. Please use Chrome, Edge, or Brave.'));
+        throw new Error('WebUSB is not supported in this browser. Please use Chrome, Edge, or Brave with HTTPS connection.');
       }
 
+      // Create transport with timeout
       const transport = await TransportWebUSB.create();
       const ethApp = new Eth(transport);
+      
+      // Test connection by getting app configuration
+      try {
+        await ethApp.getAppConfiguration();
+      } catch (testError: any) {
+        await transport.close();
+        throw new Error(parseLedgerError(testError));
+      }
       
       set(deviceInfo, {
         ethApp,
@@ -57,7 +122,9 @@ export function useLedger(): {
       return true;
     }
     catch (error_: any) {
-      set(error, error_.message || t('ledger.errors.connection_failed', 'Failed to connect to Ledger device'));
+      const userFriendlyMessage = parseLedgerError(error_);
+      set(error, userFriendlyMessage);
+      console.error('Ledger connection error:', error_);
       return false;
     }
     finally {
@@ -75,6 +142,7 @@ export function useLedger(): {
       }
       
       set(deviceInfo, null);
+      set(error, '');
     }
     catch (error_: any) {
       console.error('Error disconnecting from Ledger:', error_);
@@ -90,7 +158,7 @@ export function useLedger(): {
       const device = get(deviceInfo);
 
       if (!device?.ethApp) {
-        throw new Error(t('ledger.errors.device_not_connected', 'Ledger device not connected'));
+        throw new Error('Ledger device not connected. Please connect your Ledger device first.');
       }
 
       const addresses: LedgerAddress[] = [];
@@ -109,22 +177,30 @@ export function useLedger(): {
               index: addressIndex,
             });
           }
-          }
+        }
         catch (addressError: any) {
           console.warn(`Error deriving address at index ${addressIndex}:`, addressError);
+          // For individual address errors, we might want to continue with others
+          // but if it's a device/app error, we should stop
+          const errorMessage = parseLedgerError(addressError);
+          if (errorMessage.includes('unlock') || errorMessage.includes('app') || errorMessage.includes('locked')) {
+            throw new Error(errorMessage);
+          }
           continue;
         }
       }
 
       if (addresses.length === 0) {
-        throw new Error(t('ledger.errors.no_addresses_derived', 'No addresses could be derived from Ledger. Please ensure your Ledger is unlocked and the Ethereum app is open.'));
+        throw new Error('No addresses could be derived. Please unlock your Ledger device and open the Ethereum app.');
       }
 
       return addresses;
     }
     catch (error_: any) {
-      set(error, error_.message || t('ledger.errors.address_derivation_failed', 'Failed to derive addresses from Ledger'));
-      throw error_;
+      const userFriendlyMessage = parseLedgerError(error_);
+      set(error, userFriendlyMessage);
+      console.error('Ledger address derivation error:', error_);
+      throw new Error(userFriendlyMessage);
     }
     finally {
       set(isDerivingAddresses, false);
@@ -140,7 +216,7 @@ export function useLedger(): {
       const device = get(deviceInfo);
 
       if (!device?.ethApp) {
-        throw new Error(t('ledger.errors.device_not_connected', 'Ledger device not connected'));
+        throw new Error('Ledger device not connected. Please connect your Ledger device first.');
       }
 
       const derivationPath = `44'/60'/0'/${index}`;
@@ -149,8 +225,10 @@ export function useLedger(): {
       return result.address;
     }
     catch (error_: any) {
-      set(error, error_.message || t('ledger.errors.address_verification_failed', 'Failed to verify address on Ledger'));
-      throw error_;
+      const userFriendlyMessage = parseLedgerError(error_);
+      set(error, userFriendlyMessage);
+      console.error('Ledger address verification error:', error_);
+      throw new Error(userFriendlyMessage);
     }
     finally {
       set(isDerivingAddresses, false);
