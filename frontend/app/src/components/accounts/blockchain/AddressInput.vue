@@ -72,17 +72,49 @@ watch(address, (address) => {
 });
 
 function setAddress(addresses: string[]) {
+  console.log('🔧 AddressInput.setAddress called with:', {
+    addresses,
+    count: addresses.length,
+    currentMultiple: get(multiple),
+  });
+
   if (addresses.length === 1) {
     set(address, addresses[0]);
+    set(userAddresses, '');
+    set(multiple, false);
+    console.log('✅ Set single address mode:', { address: addresses[0], multiple: false });
+  }
+  else if (addresses.length > 1) {
+    // For multiple addresses, set the multiple flag first, then the addresses
+    set(address, '');
+    set(multiple, true);
+
+    // Use nextTick to ensure the multiple checkbox is checked before setting addresses
+    nextTick(() => {
+      set(userAddresses, addresses.join(',\n'));
+      console.log('✅ Set multiple address mode:', {
+        addressCount: addresses.length,
+        multiple: true,
+        userAddresses: addresses.join(',\n'),
+      });
+    });
   }
   else if (addresses.length === 0) {
     set(address, '');
     set(userAddresses, '');
+    set(multiple, false);
+    console.log('✅ Set empty address mode:', { multiple: false });
   }
 }
 
-watch(addresses, addresses => setAddress(addresses));
-onMounted(() => setAddress(get(addresses)));
+watch(addresses, (addresses) => {
+  console.log('👀 AddressInput addresses watcher triggered:', addresses);
+  setAddress(addresses);
+});
+onMounted(() => {
+  console.log('🚀 AddressInput mounted with addresses:', get(addresses));
+  setAddress(get(addresses));
+});
 
 const rules = {
   address: {
@@ -147,9 +179,22 @@ watch(errorMessages, (errors) => {
     get(v$).$validate();
 });
 
-watch(multiple, () => {
+watch(multiple, (newMultiple, oldMultiple) => {
+  console.log('🔄 Multiple checkbox changed:', { currentUserAddresses: get(userAddresses), newMultiple, oldMultiple });
   get(v$).$clearExternalResults();
-  set(userAddresses, '');
+
+  // Only clear userAddresses when manually switching from multiple to single mode
+  // and when we don't have addresses set (to avoid clearing hardware wallet addresses)
+  if (!newMultiple && oldMultiple) {
+    // Don't clear if we have content in userAddresses (likely from hardware wallet)
+    if (get(userAddresses).trim() === '') {
+      set(userAddresses, '');
+      console.log('🧹 Cleared empty userAddresses due to manual unchecking');
+    }
+    else {
+      console.log('🛡️ Preserved userAddresses content:', get(userAddresses));
+    }
+  }
 });
 
 function updateAddressesFromWalletImport(addresses: string[]) {

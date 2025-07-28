@@ -12,6 +12,13 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest" crossorigin="use-credentials">
     <title>rotki</title>
+    <script>
+      // Buffer polyfill - must load before any other scripts
+      window.global = window.globalThis = window;
+      if (typeof window.Buffer === 'undefined') {
+        window.Buffer = {};
+      }
+    </script>
 </head>
 
 <body>
